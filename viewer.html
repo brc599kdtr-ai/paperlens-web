@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#19251f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="读页 PaperLens" />
+    <title>读页 PaperLens</title>
+    <link rel="icon" href="icons/icon32.png" />
+    <link rel="apple-touch-icon" href="icons/icon192.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="viewer.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand" aria-label="读页 PaperLens">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32">
+              <path d="M8 7.5h10.5a5 5 0 0 1 5 5V25H13a5 5 0 0 0-5 5V7.5Z" />
+              <path d="M8 7.5H5.5v20H13" />
+              <path d="M13 12.5h6M13 16.5h4" />
+            </svg>
+          </div>
+          <div>
+            <div class="brand-name">读页 <span>PaperLens</span></div>
+            <div class="brand-tagline">把论文读薄，不把意思读丢</div>
+          </div>
+        </div>
+
+        <div class="document-title-wrap">
+          <span class="document-dot" id="documentDot"></span>
+          <span class="document-title" id="documentTitle">尚未打开 PDF</span>
+        </div>
+
+        <div class="top-actions">
+          <button class="button button-quiet" id="openSampleButton" type="button">
+            示例论文
+          </button>
+          <button class="button button-light" id="openFileButton" type="button">
+            <svg viewBox="0 0 20 20" aria-hidden="true">
+              <path d="M3 3.5h5l1.5 2h7.5v11H3v-13Z" />
+              <path d="M3 7h14" />
+            </svg>
+            打开 PDF
+          </button>
+          <button class="icon-button" id="settingsButton" type="button" title="设置 AI 接口" aria-label="设置 AI 接口">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 15.25A3.25 3.25 0 1 0 12 8.75a3.25 3.25 0 0 0 0 6.5Z" />
+              <path d="M19.4 13.5c.05-.5.05-1 0-1.5l1.6-1.25-1.5-2.6-1.95.8a7.4 7.4 0 0 0-1.3-.75L16 6.1h-3l-.25 2.1c-.45.2-.9.45-1.3.75l-1.95-.8-1.5 2.6L9.6 12a7 7 0 0 0 0 1.5l-1.6 1.25 1.5 2.6 1.95-.8c.4.3.85.55 1.3.75l.25 2.1h3l.25-2.1c.45-.2.9-.45 1.3-.75l1.95.8 1.5-2.6-1.6-1.25Z" />
+            </svg>
+          </button>
+          <button class="icon-button" id="panelToggleButton" type="button" title="收起/展开侧栏" aria-label="收起或展开侧栏">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 5h16v14H4z" />
+              <path d="M15 5v14" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="workspace" id="workspace">
+        <section class="reader-column">
+          <div class="reader-toolbar">
+            <div class="toolbar-group">
+              <button class="small-button" id="zoomOutButton" type="button" title="缩小">−</button>
+              <span class="zoom-label" id="zoomLabel">100%</span>
+              <button class="small-button" id="zoomInButton" type="button" title="放大">＋</button>
+              <button class="small-button fit-button" id="fitButton" type="button" title="适合宽度">适合宽度</button>
+            </div>
+            <div class="page-status">
+              <span id="pageStatus">等待打开文档</span>
+              <span class="page-divider">·</span>
+              <span id="renderStatus">PDF.js 本地渲染</span>
+            </div>
+            <div class="toolbar-group toolbar-group-right">
+              <button class="small-button translate-page-button" id="translatePageButton" type="button">
+                逐句译本页
+              </button>
+            </div>
+          </div>
+
+          <div class="pdf-scroll" id="pdfScroll">
+            <section class="empty-state" id="emptyState">
+              <div class="empty-illustration" aria-hidden="true">
+                <div class="fake-page fake-page-back"></div>
+                <div class="fake-page">
+                  <span class="fake-line fake-line-title"></span>
+                  <span class="fake-line"></span>
+                  <span class="fake-line short"></span>
+                  <div class="fake-highlight"></div>
+                  <span class="fake-line"></span>
+                  <span class="fake-line short"></span>
+                </div>
+                <div class="translation-float">
+                  <span>逐句译文</span>
+                  <i></i>
+                  <i class="short"></i>
+                </div>
+              </div>
+              <h1>打开一篇论文，开始精读</h1>
+              <p>选中原文中的难句或专业词，右侧会给出译文、上下文解释，以及统计数据的读法。</p>
+              <div class="empty-actions">
+                <button class="button button-primary" id="emptyOpenButton" type="button">选择本地 PDF</button>
+                <button class="button button-secondary" id="emptySampleButton" type="button">先看示例论文</button>
+              </div>
+              <div class="drop-hint">也可以把 PDF 文件直接拖到这里</div>
+            </section>
+
+            <div class="pdf-pages" id="pdfPages" hidden></div>
+          </div>
+
+          <div class="selection-toolbar" id="selectionToolbar" hidden>
+            <button type="button" data-selection-action="translate">
+              <span class="selection-icon">译</span>
+              翻译
+            </button>
+            <button type="button" data-selection-action="explain">
+              <span class="selection-icon">释</span>
+              解释术语
+            </button>
+            <button type="button" data-selection-action="analyze">
+              <span class="selection-icon">数</span>
+              解读数据
+            </button>
+          </div>
+        </section>
+
+        <aside class="assistant-panel" id="assistantPanel">
+          <div class="assistant-heading">
+            <div>
+              <div class="eyebrow">READING COMPANION</div>
+              <h2>精读助手</h2>
+            </div>
+            <div class="connection-badge" id="connectionBadge">
+              <span class="connection-dot"></span>
+              本地演示
+            </div>
+          </div>
+
+          <div class="panel-tabs" role="tablist">
+            <button class="panel-tab active" id="assistantTab" type="button" role="tab" aria-selected="true">
+              解释
+            </button>
+            <button class="panel-tab" id="glossaryTab" type="button" role="tab" aria-selected="false">
+              术语卡 <span id="glossaryCount">0</span>
+            </button>
+          </div>
+
+          <div class="panel-view" id="assistantView">
+            <div class="panel-scroll">
+              <section class="selection-card" id="selectionCard">
+                <div class="card-label">
+                  <span>当前选中</span>
+                  <button class="text-button" id="clearSelectionButton" type="button" hidden>清除</button>
+                </div>
+                <blockquote id="selectionQuote">
+                  在左侧划过一句英文，再点“翻译”或“解释术语”。
+                </blockquote>
+                <div class="quick-actions">
+                  <button class="quick-action" type="button" data-quick-action="translate">
+                    <span class="quick-action-icon">Aa</span>
+                    翻译整句
+                  </button>
+                  <button class="quick-action" type="button" data-quick-action="explain">
+                    <span class="quick-action-icon">?</span>
+                    解释术语
+                  </button>
+                  <button class="quick-action" type="button" data-quick-action="analyze">
+                    <span class="quick-action-icon">%</span>
+                    读懂数据
+                  </button>
+                </div>
+              </section>
+
+              <section class="demo-tip" id="demoTip">
+                <div class="demo-tip-icon">i</div>
+                <div>
+                  <strong>现在就能试</strong>
+                  <p>打开示例论文，选中带绿色高亮的那句话。接入 AI 后，任意句子和专业词都能使用。</p>
+                </div>
+              </section>
+
+              <section class="answer-section" id="answerSection" hidden>
+                <div class="answer-loading" id="answerLoading" hidden>
+                  <div class="loading-orbit"></div>
+                  <div>
+                    <strong>正在结合上下文解释</strong>
+                    <p>只发送你选中的文字和当前页信息。</p>
+                  </div>
+                </div>
+
+                <div id="answerContent">
+                  <div class="answer-head">
+                    <div>
+                      <div class="eyebrow" id="answerKind">CONTEXTUAL EXPLANATION</div>
+                      <h3 id="answerTitle">逐句理解</h3>
+                    </div>
+                    <div class="answer-actions">
+                      <button class="icon-button panel-icon-button" id="copyAnswerButton" type="button" title="复制解释" aria-label="复制解释">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <rect x="8" y="8" width="11" height="11" rx="2" />
+                          <path d="M16 8V5H5v11h3" />
+                        </svg>
+                      </button>
+                      <button class="icon-button panel-icon-button" id="saveAnswerButton" type="button" title="保存术语卡" aria-label="保存术语卡">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M6 4h12v16l-6-4-6 4V4Z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="answer-block translation-block">
+                    <span class="answer-label">中文译文</span>
+                    <p id="translationText"></p>
+                  </div>
+
+                  <div class="answer-block">
+                    <span class="answer-label">这篇论文里的意思</span>
+                    <p id="explanationText"></p>
+                  </div>
+
+                  <div class="terms-wrap" id="termsWrap" hidden>
+                    <span class="answer-label">关键术语</span>
+                    <div class="term-list" id="termList"></div>
+                  </div>
+
+                  <div class="data-insight" id="dataInsight" hidden>
+                    <div class="data-insight-icon">%</div>
+                    <div>
+                      <span class="answer-label">数据怎么看</span>
+                      <p id="dataInsightText"></p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="answer-error" id="answerError" hidden>
+                  <strong>这次没有拿到解释</strong>
+                  <p id="answerErrorText"></p>
+                </div>
+              </section>
+            </div>
+
+            <div class="ask-box">
+              <label for="followupInput">继续问这篇论文</label>
+              <div class="ask-input-wrap">
+                <textarea id="followupInput" rows="2" placeholder="例如：这里的潜在剖面和市场细分有什么区别？"></textarea>
+                <button class="send-button" id="sendFollowupButton" type="button" aria-label="发送问题">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="m4 12 15-7-4.5 14-3-5.5L4 12Z" />
+                    <path d="m11.5 13.5 3.5-3.5" />
+                  </svg>
+                </button>
+              </div>
+              <p class="privacy-note">只发送选中文本和当前页上下文，不会上传整份 PDF。</p>
+            </div>
+          </div>
+
+          <div class="panel-view glossary-view" id="glossaryView" hidden>
+            <div class="panel-scroll">
+              <div class="glossary-heading">
+                <div>
+                  <div class="eyebrow">YOUR PAPER GLOSSARY</div>
+                  <h3>本篇术语卡</h3>
+                </div>
+                <button class="text-button" id="exportGlossaryButton" type="button">复制全部</button>
+              </div>
+              <div class="glossary-list" id="glossaryList"></div>
+              <div class="glossary-empty" id="glossaryEmpty">
+                <div class="glossary-empty-mark">Aa</div>
+                <strong>还没有术语卡</strong>
+                <p>解释完一个词后，点答案右上角的书签保存。</p>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <input id="fileInput" type="file" accept="application/pdf,.pdf" hidden />
+
+    <div class="dialog-backdrop" id="settingsDialog" hidden>
+      <section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="dialog-head">
+          <div>
+            <div class="eyebrow">AI CONNECTION</div>
+            <h2 id="settingsTitle">连接解释服务</h2>
+          </div>
+          <button class="icon-button dialog-close" id="closeSettingsButton" type="button" aria-label="关闭设置">×</button>
+        </div>
+        <p class="dialog-intro">支持 OpenAI 兼容的 Chat Completions 接口。密钥只保存在本机扩展存储中。</p>
+
+        <label class="field">
+          <span>API Base URL</span>
+          <input id="apiBaseInput" type="url" spellcheck="false" placeholder="https://api.openai.com/v1" />
+        </label>
+        <label class="field">
+          <span>模型名称</span>
+          <input id="apiModelInput" type="text" spellcheck="false" placeholder="例如：gpt-5-mini" />
+        </label>
+        <label class="field">
+          <span>API Key</span>
+          <input id="apiKeyInput" type="password" spellcheck="false" placeholder="sk-..." autocomplete="off" />
+        </label>
+
+        <div class="settings-actions">
+          <button class="button button-secondary" id="testConnectionButton" type="button">测试连接</button>
+          <div class="settings-actions-right">
+            <button class="button button-quiet" id="clearAiButton" type="button">清除</button>
+            <button class="button button-primary" id="saveSettingsButton" type="button">保存设置</button>
+          </div>
+        </div>
+        <p class="settings-message" id="settingsMessage"></p>
+      </section>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+    <script type="module" src="viewer.js"></script>
+  </body>
+</html>

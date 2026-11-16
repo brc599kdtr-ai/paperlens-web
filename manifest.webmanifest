@@ -1,0 +1,29 @@
+{
+  "name": "读页 PaperLens — 论文精读助手",
+  "short_name": "PaperLens",
+  "description": "在 iPad 和电脑上阅读 PDF，逐句翻译、解释专业术语并解读统计结果。",
+  "lang": "zh-CN",
+  "start_url": "./viewer.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f4f1ea",
+  "theme_color": "#19251f",
+  "icons": [
+    {
+      "src": "./icons/icon128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icon512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
