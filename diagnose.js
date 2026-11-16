@@ -1,4 +1,4 @@
-import * as pdfjsLib from "./vendor/pdf.mjs";
+import * as pdfjsLib from "./vendor/pdf.polyfilled.mjs";
 
 const results = document.querySelector("#results");
 const status = document.querySelector("#status");

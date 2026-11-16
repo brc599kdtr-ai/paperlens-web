@@ -1,4 +1,4 @@
-import * as pdfjsLib from "./vendor/pdf.mjs";
+import * as pdfjsLib from "./vendor/pdf.polyfilled.mjs";
 
 const vendorRoot = new URL("./vendor/", import.meta.url).href;
 pdfjsLib.GlobalWorkerOptions.workerSrc = `${vendorRoot}pdf.worker.polyfilled.mjs`;
@@ -14,6 +14,7 @@ const PDF_OPTIONS = {
 const CONFIG_KEY = "paperlens-ai-config-v1";
 const GLOSSARY_KEY = "paperlens-glossary-v1";
 const DEFAULT_SCALE = 1.6;
+const APP_BUILD = "v7";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -400,7 +401,7 @@ async function loadPdf(source, fallbackTitle) {
     updateScrollStatus();
   });
   elements.zoomLabel.textContent = `${Math.round(state.scale * 75)}%`;
-  elements.renderStatus.textContent = "PDF.js 本地渲染";
+  elements.renderStatus.textContent = `PDF.js 本地渲染 · ${APP_BUILD}`;
 }
 
 function setupRenderObserver() {
@@ -495,7 +496,7 @@ async function renderPage(pageEntry) {
   })()
     .catch((error) => {
       const message = error?.message || String(error);
-      elements.renderStatus.textContent = `页面渲染失败：${message}`;
+      elements.renderStatus.textContent = `页面渲染失败（${APP_BUILD}）：${message}`;
       elements.pageStatus.textContent = `第 ${pageEntry.pageNumber} 页渲染失败`;
       showToast(`第 ${pageEntry.pageNumber} 页渲染失败：${message}`);
       console.error("Page render failed", error);
@@ -509,7 +510,7 @@ async function renderPage(pageEntry) {
 
 function handleLoadError(error) {
   console.error("PDF load failed", error);
-  elements.renderStatus.textContent = "打开失败";
+  elements.renderStatus.textContent = `打开失败 · ${APP_BUILD}`;
   elements.emptyState.hidden = false;
   elements.pdfPages.hidden = true;
   setDocumentTitle("尚未打开 PDF", false);
@@ -569,7 +570,7 @@ async function setScale(nextScale) {
       void renderPage(entry);
     }
   }
-  elements.renderStatus.textContent = "PDF.js 本地渲染";
+  elements.renderStatus.textContent = `PDF.js 本地渲染 · ${APP_BUILD}`;
 }
 
 function fitWidth() {
@@ -1479,7 +1480,7 @@ function initialize() {
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
-      .register(new URL("./sw.js?v=6", import.meta.url), { scope: "./" })
+      .register(new URL("./sw.js?v=7", import.meta.url), { scope: "./" })
       .catch((error) => {
         console.warn("PaperLens offline cache could not be registered", error);
       });
