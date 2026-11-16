@@ -494,7 +494,10 @@ async function renderPage(pageEntry) {
     }
   })()
     .catch((error) => {
-      elements.renderStatus.textContent = "页面渲染失败";
+      const message = error?.message || String(error);
+      elements.renderStatus.textContent = `页面渲染失败：${message}`;
+      elements.pageStatus.textContent = `第 ${pageEntry.pageNumber} 页渲染失败`;
+      showToast(`第 ${pageEntry.pageNumber} 页渲染失败：${message}`);
       console.error("Page render failed", error);
     })
     .finally(() => {
