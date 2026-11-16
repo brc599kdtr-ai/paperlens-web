@@ -40,4 +40,25 @@
       return Object.prototype.hasOwnProperty.call(object, property);
     };
   }
+
+  if (typeof Map.prototype.getOrInsert !== "function") {
+    Map.prototype.getOrInsert = function (key, value) {
+      if (this.has(key)) {
+        return this.get(key);
+      }
+      this.set(key, value);
+      return value;
+    };
+  }
+
+  if (typeof Map.prototype.getOrInsertComputed !== "function") {
+    Map.prototype.getOrInsertComputed = function (key, compute) {
+      if (this.has(key)) {
+        return this.get(key);
+      }
+      const value = compute(key, this);
+      this.set(key, value);
+      return value;
+    };
+  }
 })();

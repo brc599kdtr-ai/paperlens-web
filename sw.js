@@ -1,4 +1,4 @@
-const CACHE_NAME = "paperlens-web-v0.4.0";
+const CACHE_NAME = "paperlens-web-v0.5.0";
 const CORE_ASSETS = [
   "./",
   "./index.html",
