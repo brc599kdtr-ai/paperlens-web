@@ -38,7 +38,7 @@ async function run() {
     addResult("ReadableStream", typeof ReadableStream === "function");
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-      "./vendor/pdf.worker.mjs",
+      "./vendor/pdf.worker.polyfilled.mjs",
       import.meta.url
     ).href;
 

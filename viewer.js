@@ -1,7 +1,7 @@
 import * as pdfjsLib from "./vendor/pdf.mjs";
 
 const vendorRoot = new URL("./vendor/", import.meta.url).href;
-pdfjsLib.GlobalWorkerOptions.workerSrc = `${vendorRoot}pdf.worker.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `${vendorRoot}pdf.worker.polyfilled.mjs`;
 
 const PDF_OPTIONS = {
   cMapUrl: `${vendorRoot}cmaps/`,
@@ -1479,7 +1479,7 @@ function initialize() {
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
-      .register(new URL("./sw.js?v=5", import.meta.url), { scope: "./" })
+      .register(new URL("./sw.js?v=6", import.meta.url), { scope: "./" })
       .catch((error) => {
         console.warn("PaperLens offline cache could not be registered", error);
       });
