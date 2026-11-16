@@ -1,10 +1,12 @@
-const CACHE_NAME = "paperlens-web-v0.3.0";
+const CACHE_NAME = "paperlens-web-v0.4.0";
 const CORE_ASSETS = [
   "./",
   "./index.html",
   "./viewer.html",
   "./viewer.css",
   "./viewer.js",
+  "./diagnose.html",
+  "./diagnose.js",
   "./polyfills.js",
   "./manifest.webmanifest",
   "./vendor/pdf.mjs",

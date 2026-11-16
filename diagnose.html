@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PaperLens 诊断</title>
+    <style>
+      :root {
+        color: #17221e;
+        background: #f4f1ea;
+        font-family: system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+      body {
+        margin: 0;
+        padding: 24px;
+      }
+      h1 {
+        margin: 0 0 16px;
+        font-size: 22px;
+      }
+      #status {
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: #e0f0e7;
+      }
+      ol {
+        margin: 18px 0;
+        padding-left: 22px;
+      }
+      li {
+        margin: 9px 0;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .ok::marker {
+        color: #2f8a5b;
+      }
+      .fail::marker {
+        color: #c14b3c;
+      }
+      .fail {
+        color: #8d3127;
+      }
+      #canvasWrap {
+        margin-top: 18px;
+        overflow: auto;
+        border: 1px solid #d8d5cc;
+        border-radius: 8px;
+        background: #fff;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>PaperLens 渲染诊断</h1>
+    <div id="status">正在检测…</div>
+    <ol id="results"></ol>
+    <div id="canvasWrap" hidden></div>
+    <script type="module" src="diagnose.js?v=4"></script>
+  </body>
+</html>

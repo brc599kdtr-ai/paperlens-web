@@ -1479,7 +1479,7 @@ function initialize() {
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
-      .register(new URL("./sw.js", import.meta.url), { scope: "./" })
+      .register(new URL("./sw.js?v=4", import.meta.url), { scope: "./" })
       .catch((error) => {
         console.warn("PaperLens offline cache could not be registered", error);
       });
