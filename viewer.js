@@ -15,7 +15,7 @@ const CONFIG_KEY = "paperlens-ai-config-v1";
 const GLOSSARY_KEY = "paperlens-glossary-v1";
 const PANEL_WIDTH_KEY = "paperlens-panel-width-v1";
 const DEFAULT_SCALE = 1.6;
-const APP_BUILD = "v8";
+const APP_BUILD = "v9";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -586,6 +586,84 @@ function fitWidth() {
 
 function scheduleSelectionUpdate() {
   setTimeout(() => updateSelectionFromWindow(), 0);
+}
+
+let longPressState = null;
+
+function clearLongPress() {
+  if (longPressState?.timer) clearTimeout(longPressState.timer);
+  longPressState = null;
+}
+
+function rangeAtPoint(x, y) {
+  if (document.caretRangeFromPoint) {
+    return document.caretRangeFromPoint(x, y);
+  }
+  if (document.caretPositionFromPoint) {
+    const position = document.caretPositionFromPoint(x, y);
+    if (!position) return null;
+    const range = document.createRange();
+    range.setStart(position.offsetNode, position.offset);
+    range.collapse(true);
+    return range;
+  }
+  return null;
+}
+
+function selectWordAtPoint(x, y) {
+  const caret = rangeAtPoint(x, y);
+  if (!caret || caret.startContainer.nodeType !== Node.TEXT_NODE) return false;
+
+  const node = caret.startContainer;
+  const text = node.nodeValue || "";
+  const isWordCharacter = (character) => /[A-Za-z0-9_'’-]/.test(character);
+  let start = Math.min(caret.startOffset, text.length);
+  let end = start;
+
+  while (start > 0 && isWordCharacter(text[start - 1])) start -= 1;
+  while (end < text.length && isWordCharacter(text[end])) end += 1;
+  if (start === end && text[start]) end += 1;
+  if (start === end) return false;
+
+  const range = document.createRange();
+  range.setStart(node, start);
+  range.setEnd(node, end);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+
+  state.selectedText = truncate(selection.toString(), 3400);
+  state.selectedPage = Number(
+    node.parentElement?.closest(".pdf-page")?.dataset.pageNumber ||
+      state.currentPage
+  );
+  state.selectionRange = range.cloneRange();
+  renderSelectionCard();
+  showSelectionToolbar(range);
+  return true;
+}
+
+function beginLongPress(event) {
+  if (event.pointerType !== "touch") return;
+  const textLayer = event.target.closest?.(".textLayer");
+  if (!textLayer) return;
+  clearLongPress();
+  const point = { x: event.clientX, y: event.clientY };
+  longPressState = {
+    point,
+    timer: setTimeout(() => {
+      if (!longPressState) return;
+      selectWordAtPoint(point.x, point.y);
+      longPressState = null;
+    }, 520),
+  };
+}
+
+function trackLongPress(event) {
+  if (!longPressState || event.pointerType !== "touch") return;
+  const dx = event.clientX - longPressState.point.x;
+  const dy = event.clientY - longPressState.point.y;
+  if (Math.hypot(dx, dy) > 12) clearLongPress();
 }
 
 function updateSelectionFromWindow() {
@@ -1472,6 +1550,13 @@ function bindEvents() {
   });
 
   elements.pdfScroll.addEventListener("scroll", updateScrollStatus, { passive: true });
+  document.addEventListener("pointerdown", beginLongPress, { passive: true });
+  document.addEventListener("pointermove", trackLongPress, { passive: true });
+  document.addEventListener("pointerup", clearLongPress, { passive: true });
+  document.addEventListener("pointercancel", clearLongPress, { passive: true });
+  document.addEventListener("contextmenu", (event) => {
+    if (event.target.closest?.(".textLayer")) event.preventDefault();
+  });
   window.addEventListener("resize", () => {
     hideSelectionToolbar();
     applyPanelWidth(state.panelWidth);
@@ -1540,7 +1625,7 @@ function initialize() {
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
-      .register(new URL("./sw.js?v=8", import.meta.url), { scope: "./" })
+      .register(new URL("./sw.js?v=9", import.meta.url), { scope: "./" })
       .catch((error) => {
         console.warn("PaperLens offline cache could not be registered", error);
       });

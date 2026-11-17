@@ -45,7 +45,7 @@
     <main>
       <h1 id="title">正在清理旧缓存…</h1>
       <p id="message">完成后会自动打开新版 PaperLens。</p>
-      <a id="manualLink" href="./viewer.html?demo=1&v=8" hidden>打开新版</a>
+      <a id="manualLink" href="./viewer.html?demo=1&v=9" hidden>打开新版</a>
     </main>
     <script>
       (async function () {
@@ -71,7 +71,7 @@
           document.querySelector("#title").textContent = "缓存已清理";
           document.querySelector("#message").textContent =
             "正在打开新版；如果两秒后没有自动跳转，请点下面的按钮。";
-          setTimeout(() => location.replace("./viewer.html?demo=1&v=8"), 800);
+          setTimeout(() => location.replace("./viewer.html?demo=1&v=9"), 800);
         } catch (error) {
           document.querySelector("#title").textContent = "自动清理失败";
           document.querySelector("#message").textContent = error.message;
