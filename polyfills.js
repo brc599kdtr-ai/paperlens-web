@@ -61,4 +61,51 @@
       return value;
     };
   }
+
+  if (typeof Promise.try !== "function") {
+    Promise.try = function (callback, ...args) {
+      return new Promise((resolve) => resolve(callback(...args)));
+    };
+  }
+
+  if (typeof URL.parse !== "function") {
+    URL.parse = function (url, base) {
+      try {
+        return base === undefined ? new URL(url) : new URL(url, base);
+      } catch {
+        return null;
+      }
+    };
+  }
+
+  if (typeof URL.canParse !== "function") {
+    URL.canParse = function (url, base) {
+      return URL.parse(url, base) !== null;
+    };
+  }
+
+  if (typeof Uint8Array.prototype.toBase64 !== "function") {
+    Uint8Array.prototype.toBase64 = function () {
+      const chunkSize = 0x8000;
+      let binary = "";
+      for (let offset = 0; offset < this.length; offset += chunkSize) {
+        binary += String.fromCharCode.apply(
+          null,
+          this.subarray(offset, offset + chunkSize)
+        );
+      }
+      return btoa(binary);
+    };
+  }
+
+  if (typeof Uint8Array.fromBase64 !== "function") {
+    Uint8Array.fromBase64 = function (value) {
+      const binary = atob(String(value).replace(/\s+/g, ""));
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+      return bytes;
+    };
+  }
 })();

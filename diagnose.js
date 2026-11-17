@@ -35,6 +35,20 @@ async function run() {
       "Promise.withResolvers",
       typeof Promise.withResolvers === "function"
     );
+    addResult("Promise.try", typeof Promise.try === "function");
+    addResult(
+      "Map.getOrInsertComputed",
+      typeof Map.prototype.getOrInsertComputed === "function"
+    );
+    addResult("URL.parse", typeof URL.parse === "function");
+    addResult(
+      "Uint8Array.toBase64",
+      typeof Uint8Array.prototype.toBase64 === "function"
+    );
+    addResult(
+      "Uint8Array.fromBase64",
+      typeof Uint8Array.fromBase64 === "function"
+    );
     addResult("ReadableStream", typeof ReadableStream === "function");
 
     pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(

@@ -13,8 +13,9 @@ const PDF_OPTIONS = {
 
 const CONFIG_KEY = "paperlens-ai-config-v1";
 const GLOSSARY_KEY = "paperlens-glossary-v1";
+const PANEL_WIDTH_KEY = "paperlens-panel-width-v1";
 const DEFAULT_SCALE = 1.6;
-const APP_BUILD = "v7";
+const APP_BUILD = "v8";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -30,6 +31,7 @@ const elements = {
   emptySampleButton: $("#emptySampleButton"),
   settingsButton: $("#settingsButton"),
   panelToggleButton: $("#panelToggleButton"),
+  panelResizeHandle: $("#panelResizeHandle"),
   zoomOutButton: $("#zoomOutButton"),
   zoomInButton: $("#zoomInButton"),
   fitButton: $("#fitButton"),
@@ -94,6 +96,7 @@ const state = {
   selectionRange: null,
   loadToken: 0,
   lastAnswer: null,
+  panelWidth: Number(localStorage.getItem(PANEL_WIDTH_KEY)) || 410,
   glossary: loadJson(GLOSSARY_KEY, []),
   config: loadJson(CONFIG_KEY, {
     baseUrl: "",
@@ -1343,6 +1346,61 @@ function togglePanel() {
   elements.workspace.classList.toggle("panel-collapsed");
 }
 
+function panelWidthLimits() {
+  const viewportWidth = Math.max(320, window.innerWidth);
+  const min = viewportWidth <= 900 ? 280 : 300;
+  const max = Math.max(min, Math.min(760, viewportWidth - 150));
+  return { min, max };
+}
+
+function applyPanelWidth(width, persist = false) {
+  const { min, max } = panelWidthLimits();
+  const clamped = Math.round(Math.min(max, Math.max(min, Number(width) || 410)));
+  state.panelWidth = clamped;
+  elements.workspace.style.setProperty("--assistant-width", `${clamped}px`);
+  if (persist) {
+    localStorage.setItem(PANEL_WIDTH_KEY, String(clamped));
+  }
+}
+
+function bindPanelResize() {
+  applyPanelWidth(state.panelWidth);
+
+  elements.panelResizeHandle.addEventListener("pointerdown", (event) => {
+    if (elements.workspace.classList.contains("panel-collapsed")) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = elements.assistantPanel.getBoundingClientRect().width;
+    elements.panelResizeHandle.classList.add("active");
+    document.body.classList.add("panel-resizing");
+    elements.panelResizeHandle.setPointerCapture?.(event.pointerId);
+
+    const move = (moveEvent) => {
+      applyPanelWidth(startWidth + startX - moveEvent.clientX);
+    };
+    const finish = () => {
+      elements.panelResizeHandle.classList.remove("active");
+      document.body.classList.remove("panel-resizing");
+      elements.panelResizeHandle.removeEventListener("pointermove", move);
+      elements.panelResizeHandle.removeEventListener("pointerup", finish);
+      elements.panelResizeHandle.removeEventListener("pointercancel", finish);
+      localStorage.setItem(PANEL_WIDTH_KEY, String(state.panelWidth));
+    };
+
+    elements.panelResizeHandle.addEventListener("pointermove", move);
+    elements.panelResizeHandle.addEventListener("pointerup", finish);
+    elements.panelResizeHandle.addEventListener("pointercancel", finish);
+  });
+
+  elements.panelResizeHandle.addEventListener("dblclick", () => {
+    const { min, max } = panelWidthLimits();
+    const presets = [min, 410, 540, max];
+    const next =
+      presets.find((width) => width > state.panelWidth + 20) ?? min;
+    applyPanelWidth(next, true);
+  });
+}
+
 function bindEvents() {
   const openFilePicker = () => elements.fileInput.click();
   elements.openFileButton.addEventListener("click", openFilePicker);
@@ -1416,6 +1474,7 @@ function bindEvents() {
   elements.pdfScroll.addEventListener("scroll", updateScrollStatus, { passive: true });
   window.addEventListener("resize", () => {
     hideSelectionToolbar();
+    applyPanelWidth(state.panelWidth);
     updateScrollStatus();
   });
 
@@ -1463,6 +1522,7 @@ function bindEvents() {
 
 function initialize() {
   bindEvents();
+  bindPanelResize();
   setConnectionBadge();
   renderGlossary();
   renderSelectionCard();
@@ -1480,7 +1540,7 @@ function initialize() {
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
-      .register(new URL("./sw.js?v=7", import.meta.url), { scope: "./" })
+      .register(new URL("./sw.js?v=8", import.meta.url), { scope: "./" })
       .catch((error) => {
         console.warn("PaperLens offline cache could not be registered", error);
       });

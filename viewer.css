@@ -17,6 +17,7 @@
   --shadow: 0 18px 48px rgba(33, 41, 37, 0.12);
   --topbar-height: 72px;
   --radius: 14px;
+  --assistant-width: 410px;
   font-family:
     "Avenir Next",
     "Segoe UI",
@@ -38,6 +39,19 @@ body {
   height: 100%;
   margin: 0;
   overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input,
+textarea,
+.textLayer,
+.selection-card blockquote,
+.answer-block p,
+.term-card p,
+.glossary-item p {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 button,
@@ -283,7 +297,7 @@ textarea:focus-visible {
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 410px;
+  grid-template-columns: minmax(0, 1fr) var(--assistant-width);
   transition: grid-template-columns 220ms ease;
 }
 
@@ -670,6 +684,7 @@ textarea:focus-visible {
 }
 
 .assistant-panel {
+  position: relative;
   min-width: 0;
   min-height: 0;
   display: flex;
@@ -679,6 +694,47 @@ textarea:focus-visible {
   border-left: 1px solid var(--line);
   box-shadow: -12px 0 32px rgba(23, 34, 30, 0.035);
   transition: opacity 140ms ease;
+}
+
+.panel-resize-handle {
+  position: absolute;
+  z-index: 120;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.panel-resize-handle span {
+  width: 5px;
+  height: 74px;
+  margin-left: 1px;
+  border-radius: 999px;
+  background: #c6d3cc;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
+  transition:
+    background 130ms ease,
+    width 130ms ease;
+}
+
+.panel-resize-handle:hover span,
+.panel-resize-handle.active span {
+  width: 7px;
+  background: var(--green-bright);
+}
+
+body.panel-resizing {
+  cursor: col-resize;
+}
+
+body.panel-resizing .pdf-scroll,
+body.panel-resizing .assistant-panel {
+  pointer-events: none;
 }
 
 .assistant-heading {
@@ -1474,7 +1530,7 @@ textarea:focus-visible {
 
 @media (max-width: 1040px) {
   .workspace {
-    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-columns: minmax(0, 1fr) var(--assistant-width);
   }
 
   .topbar {
@@ -1486,7 +1542,7 @@ textarea:focus-visible {
   }
 
   .pdf-scroll.dragging::after {
-    right: 360px;
+    right: var(--assistant-width);
   }
 }
 
@@ -1511,7 +1567,7 @@ textarea:focus-visible {
     right: 0;
     bottom: 0;
     z-index: 90;
-    width: min(410px, 92vw);
+    width: min(var(--assistant-width), 94vw);
     box-shadow: -20px 0 50px rgba(17, 30, 23, 0.2);
   }
 
@@ -1523,9 +1579,6 @@ textarea:focus-visible {
     right: 0;
   }
 
-  .assistant-panel {
-    width: min(460px, 94vw);
-  }
 }
 
 @media (pointer: coarse) {
