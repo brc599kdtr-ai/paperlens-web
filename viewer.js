@@ -14,7 +14,7 @@ const GLOSSARY_KEY = "paperlens-glossary-v1";
 const PANEL_WIDTH_KEY = "paperlens-panel-width-v1";
 const ANNOTATIONS_KEY = "paperlens-annotations-v1";
 const DEFAULT_SCALE = 1.6;
-const APP_BUILD = "v12";
+const APP_BUILD = "v13";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -107,6 +107,7 @@ const state = {
   penMode: false,
   textMode: false,
   currentStroke: null,
+  lastTextLayerPoint: null,
   panelWidth: Number(localStorage.getItem(PANEL_WIDTH_KEY)) || 410,
   glossary: loadJson(GLOSSARY_KEY, []),
   config: loadJson(CONFIG_KEY, {
@@ -805,7 +806,7 @@ function pageEntryFromEvent(event) {
 }
 
 function isDrawingPointer(event) {
-  return event.pointerType === "pen" || event.pointerType === "mouse";
+  return ["pen", "mouse", "touch"].includes(event.pointerType);
 }
 
 function beginInkStroke(event, pageDiv) {
@@ -1052,6 +1053,11 @@ function beginLongPress(event) {
   if (event.pointerType !== "touch") return;
   const textLayer = event.target.closest?.(".textLayer");
   if (!textLayer) return;
+  state.lastTextLayerPoint = {
+    x: event.clientX,
+    y: event.clientY,
+    time: Date.now(),
+  };
   clearLongPress();
   const point = { x: event.clientX, y: event.clientY };
   longPressState = {
@@ -2027,13 +2033,35 @@ function bindEvents() {
     const selection = window.getSelection();
     if (!selection?.rangeCount || selection.isCollapsed) {
       hideSelectionToolbar();
-    } else {
-      scheduleSelectionUpdate();
+      return;
     }
+    const selectedText = selection.toString();
+    const recentTouch = state.lastTextLayerPoint;
+    if (
+      selectedText.length > 250 &&
+      recentTouch &&
+      Date.now() - recentTouch.time < 1600
+    ) {
+      selectWordAtPoint(recentTouch.x, recentTouch.y);
+      return;
+    }
+    scheduleSelectionUpdate();
   });
 
   elements.pdfScroll.addEventListener("scroll", updateScrollStatus, { passive: true });
   document.addEventListener("pointerdown", beginLongPress, { passive: true });
+  document.addEventListener(
+    "touchstart",
+    (event) => {
+      if (!event.target?.closest?.(".textLayer")) return;
+      state.lastTextLayerPoint = {
+        x: event.touches?.[0]?.clientX || 0,
+        y: event.touches?.[0]?.clientY || 0,
+        time: Date.now(),
+      };
+    },
+    { passive: true }
+  );
   document.addEventListener("pointermove", trackLongPress, { passive: true });
   document.addEventListener("pointerup", clearLongPress, { passive: true });
   document.addEventListener("pointercancel", clearLongPress, { passive: true });
@@ -2108,7 +2136,7 @@ function initialize() {
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
-      .register(new URL("./sw.js?v=10", import.meta.url), { scope: "./" })
+      .register(new URL("./sw.js?v=13", import.meta.url), { scope: "./" })
       .catch((error) => {
         console.warn("PaperLens offline cache could not be registered", error);
       });
