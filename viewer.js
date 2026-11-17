@@ -14,7 +14,7 @@ const GLOSSARY_KEY = "paperlens-glossary-v1";
 const PANEL_WIDTH_KEY = "paperlens-panel-width-v1";
 const ANNOTATIONS_KEY = "paperlens-annotations-v1";
 const DEFAULT_SCALE = 1.6;
-const APP_BUILD = "v11";
+const APP_BUILD = "v12";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -804,8 +804,12 @@ function pageEntryFromEvent(event) {
   return state.pages.find((item) => item.pageNumber === pageNumber);
 }
 
+function isDrawingPointer(event) {
+  return event.pointerType === "pen" || event.pointerType === "mouse";
+}
+
 function beginInkStroke(event, pageDiv) {
-  if (event.pointerType !== "pen" || !state.penMode) return;
+  if (!isDrawingPointer(event) || !state.penMode) return;
   event.preventDefault();
   const pageRect = pageDiv.getBoundingClientRect();
   const stroke = {
@@ -825,7 +829,7 @@ function beginInkStroke(event, pageDiv) {
 
 function moveInkStroke(event) {
   const current = state.currentStroke;
-  if (!current || event.pointerType !== "pen") return;
+  if (!current || !isDrawingPointer(event)) return;
   current.stroke.points.push({
     x: (event.clientX - current.pageRect.left) / current.pageRect.width,
     y: (event.clientY - current.pageRect.top) / current.pageRect.height,
@@ -851,7 +855,7 @@ function moveInkStroke(event) {
 function finishInkStroke(event) {
   const current = state.currentStroke;
   if (!current) return;
-  if (event.pointerType === "pen" && current.stroke.points.length > 1) {
+  if (isDrawingPointer(event) && current.stroke.points.length > 1) {
     const docId = current.pageDiv.dataset.docId;
     const pageNumber = Number(current.pageDiv.dataset.pageNumber);
     const doc = ensureAnnotationsDoc(docId);
