@@ -7,15 +7,13 @@ const PDF_OPTIONS = {
   cMapUrl: `${vendorRoot}cmaps/`,
   cMapPacked: true,
   standardFontDataUrl: `${vendorRoot}standard_fonts/`,
-  wasmUrl: `${vendorRoot}wasm/`,
-  iccUrl: `${vendorRoot}iccs/`,
 };
 
 const CONFIG_KEY = "paperlens-ai-config-v1";
 const GLOSSARY_KEY = "paperlens-glossary-v1";
 const PANEL_WIDTH_KEY = "paperlens-panel-width-v1";
 const DEFAULT_SCALE = 1.6;
-const APP_BUILD = "v9";
+const APP_BUILD = "v10";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -1625,7 +1623,7 @@ function initialize() {
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
-      .register(new URL("./sw.js?v=9", import.meta.url), { scope: "./" })
+      .register(new URL("./sw.js?v=10", import.meta.url), { scope: "./" })
       .catch((error) => {
         console.warn("PaperLens offline cache could not be registered", error);
       });

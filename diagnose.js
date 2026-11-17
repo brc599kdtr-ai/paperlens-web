@@ -23,8 +23,6 @@ function pdfOptions() {
     cMapUrl: `${root}cmaps/`,
     cMapPacked: true,
     standardFontDataUrl: `${root}standard_fonts/`,
-    wasmUrl: `${root}wasm/`,
-    iccUrl: `${root}iccs/`,
   };
 }
 
