@@ -12,8 +12,8 @@
     <link rel="icon" href="icons/icon32.png" />
     <link rel="apple-touch-icon" href="icons/icon192.png" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="viewer.css?v=10" />
-    <script src="polyfills.js?v=10"></script>
+    <link rel="stylesheet" href="viewer.css?v=11" />
+    <script src="polyfills.js?v=11"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -72,6 +72,12 @@
               <button class="small-button" id="zoomInButton" type="button" title="放大">＋</button>
               <button class="small-button fit-button" id="fitButton" type="button" title="适合宽度">适合宽度</button>
             </div>
+            <div class="toolbar-group annotation-tools">
+              <button class="small-button" id="highlightButton" type="button" title="高亮选中文字">高亮</button>
+              <button class="small-button" id="underlineButton" type="button" title="给选中文字加下划线">下划线</button>
+              <button class="small-button" id="textButton" type="button" title="在页面添加文字">文本</button>
+              <button class="small-button" id="penButton" type="button" title="用 Apple Pencil 写字">画笔</button>
+            </div>
             <div class="page-status">
               <span id="pageStatus">等待打开文档</span>
               <span class="page-divider">·</span>
@@ -83,6 +89,8 @@
               </button>
             </div>
           </div>
+
+          <div class="doc-tabs" id="docTabs" hidden></div>
 
           <div class="pdf-scroll" id="pdfScroll">
             <section class="empty-state" id="emptyState">
@@ -219,6 +227,12 @@
                           <path d="M6 4h12v16l-6-4-6 4V4Z" />
                         </svg>
                       </button>
+                      <button class="icon-button panel-icon-button" id="retainAnswerButton" type="button" title="把解释保留到原文旁" aria-label="把解释保留到原文旁">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M5 4h14v16l-7-4-7 4V4Z" />
+                          <path d="M9 9h6M9 13h4" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
 
@@ -327,6 +341,6 @@
     </div>
 
     <div class="toast" id="toast" hidden></div>
-    <script type="module" src="viewer.js?v=10"></script>
+    <script type="module" src="viewer.js?v=11"></script>
   </body>
 </html>

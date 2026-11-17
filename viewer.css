@@ -404,6 +404,80 @@ textarea:focus-visible {
   background: var(--green-soft);
 }
 
+.annotation-tools {
+  border-left: 1px solid var(--line-soft);
+  padding-left: 8px;
+}
+
+.annotation-tools .small-button.active {
+  color: #ffffff;
+  background: var(--green);
+}
+
+.doc-tabs {
+  flex: 0 0 auto;
+  min-height: 40px;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 6px 12px;
+  overflow-x: auto;
+  background: #f3f0e8;
+  border-bottom: 1px solid var(--line);
+}
+
+.doc-tabs[hidden] {
+  display: none;
+}
+
+.doc-tab {
+  min-width: 0;
+  max-width: 240px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--ink-soft);
+  background: #ffffff;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.doc-tab.active {
+  color: var(--green);
+  border-color: #9ec3ad;
+  background: var(--green-soft);
+}
+
+.doc-tab-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.doc-tab-close {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  color: #89958f;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.doc-tab-close:hover {
+  color: var(--red);
+  background: #f5e8e4;
+}
+
 .translate-page-button:hover {
   background: #d1e8db;
 }
@@ -594,6 +668,92 @@ textarea:focus-visible {
   user-select: none;
 }
 
+.overlay-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ink-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  touch-action: none;
+}
+
+body.pen-mode .ink-canvas {
+  pointer-events: auto;
+}
+
+body.pen-mode .textLayer {
+  pointer-events: none;
+}
+
+.annotation-item {
+  position: absolute;
+  pointer-events: none;
+}
+
+.annotation-item.highlight {
+  background: rgba(255, 213, 74, 0.42);
+  border-radius: 3px;
+}
+
+.annotation-item.underline {
+  border-bottom: 2px solid #3b8666;
+}
+
+.annotation-item.note {
+  min-width: 110px;
+  min-height: 58px;
+  padding: 6px 6px 4px;
+  border-radius: 8px;
+  background: #fffdf4;
+  border: 1px solid #e2d8b5;
+  box-shadow: 0 6px 16px rgba(43, 52, 47, 0.13);
+  pointer-events: auto;
+}
+
+.annotation-item.note textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 5px;
+  border: 0;
+  outline: 0;
+  resize: both;
+  color: var(--ink);
+  background: transparent;
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.note-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.note-drag {
+  color: #a89f88;
+  font-size: 10px;
+  cursor: grab;
+}
+
+.note-close {
+  border: 0;
+  border-radius: 5px;
+  color: #a26f66;
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+}
+
 .page-placeholder {
   position: absolute;
   inset: 0;
@@ -754,6 +914,10 @@ body.panel-resizing {
 body.panel-resizing .pdf-scroll,
 body.panel-resizing .assistant-panel {
   pointer-events: none;
+}
+
+body.text-mode .pdf-page {
+  cursor: text;
 }
 
 .assistant-heading {

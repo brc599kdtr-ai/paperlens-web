@@ -12,8 +12,9 @@ const PDF_OPTIONS = {
 const CONFIG_KEY = "paperlens-ai-config-v1";
 const GLOSSARY_KEY = "paperlens-glossary-v1";
 const PANEL_WIDTH_KEY = "paperlens-panel-width-v1";
+const ANNOTATIONS_KEY = "paperlens-annotations-v1";
 const DEFAULT_SCALE = 1.6;
-const APP_BUILD = "v10";
+const APP_BUILD = "v11";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -36,7 +37,12 @@ const elements = {
   zoomLabel: $("#zoomLabel"),
   pageStatus: $("#pageStatus"),
   renderStatus: $("#renderStatus"),
+  docTabs: $("#docTabs"),
   translatePageButton: $("#translatePageButton"),
+  highlightButton: $("#highlightButton"),
+  underlineButton: $("#underlineButton"),
+  textButton: $("#textButton"),
+  penButton: $("#penButton"),
   pdfScroll: $("#pdfScroll"),
   emptyState: $("#emptyState"),
   pdfPages: $("#pdfPages"),
@@ -65,6 +71,7 @@ const elements = {
   dataInsightText: $("#dataInsightText"),
   copyAnswerButton: $("#copyAnswerButton"),
   saveAnswerButton: $("#saveAnswerButton"),
+  retainAnswerButton: $("#retainAnswerButton"),
   followupInput: $("#followupInput"),
   sendFollowupButton: $("#sendFollowupButton"),
   glossaryCount: $("#glossaryCount"),
@@ -94,6 +101,12 @@ const state = {
   selectionRange: null,
   loadToken: 0,
   lastAnswer: null,
+  activeDocId: null,
+  documents: [],
+  annotations: loadJson(ANNOTATIONS_KEY, {}),
+  penMode: false,
+  textMode: false,
+  currentStroke: null,
   panelWidth: Number(localStorage.getItem(PANEL_WIDTH_KEY)) || 410,
   glossary: loadJson(GLOSSARY_KEY, []),
   config: loadJson(CONFIG_KEY, {
@@ -319,26 +332,6 @@ async function openPdfUrl(url) {
 
 async function loadPdf(source, fallbackTitle) {
   const token = ++state.loadToken;
-  state.renderObserver?.disconnect();
-  state.renderObserver = null;
-
-  if (state.pdfDoc) {
-    try {
-      await state.pdfDoc.destroy();
-    } catch {
-      // A replaced document may already be closing.
-    }
-  }
-
-  state.pdfDoc = null;
-  state.pages = [];
-  state.selectedText = "";
-  state.selectionRange = null;
-  state.lastAnswer = null;
-  elements.pdfPages.replaceChildren();
-  elements.pdfPages.hidden = true;
-  elements.emptyState.hidden = false;
-  clearSelection();
 
   const loadingTask = pdfjsLib.getDocument({
     ...PDF_OPTIONS,
@@ -350,7 +343,6 @@ async function loadPdf(source, fallbackTitle) {
     return;
   }
 
-  state.pdfDoc = pdfDoc;
   let title = fallbackTitle;
   try {
     const metadata = await pdfDoc.getMetadata();
@@ -362,47 +354,155 @@ async function loadPdf(source, fallbackTitle) {
     // Metadata is optional.
   }
 
-  setDocumentTitle(title || "未命名论文", true);
-  elements.emptyState.hidden = true;
-  elements.pdfPages.hidden = false;
-  elements.pageStatus.textContent = `共 ${pdfDoc.numPages} 页`;
-  elements.renderStatus.textContent = "建立可选中文本层…";
+  const doc = {
+    id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: title || "未命名论文",
+    pdfDoc,
+    pages: [],
+  };
+  state.documents.push(doc);
+  state.activeDocId = doc.id;
+  await activateDocument(doc.id);
+}
 
-  for (let pageNumber = 1; pageNumber <= pdfDoc.numPages; pageNumber += 1) {
-    if (token !== state.loadToken) return;
-    const page = await pdfDoc.getPage(pageNumber);
-    const viewport = page.getViewport({ scale: state.scale });
-    const pageDiv = document.createElement("section");
-    pageDiv.className = "pdf-page";
-    pageDiv.dataset.pageNumber = String(pageNumber);
-    pageDiv.style.width = `${viewport.width}px`;
-    pageDiv.style.height = `${viewport.height}px`;
+function activeDocument() {
+  return (
+    state.documents.find((doc) => doc.id === state.activeDocId) || null
+  );
+}
 
-    const placeholder = document.createElement("div");
-    placeholder.className = "page-placeholder";
-    placeholder.textContent = `第 ${pageNumber} 页`;
-    pageDiv.append(placeholder);
-    elements.pdfPages.append(pageDiv);
+function createPageOverlay() {
+  const overlay = document.createElement("div");
+  overlay.className = "overlay-layer";
+  const ink = document.createElement("canvas");
+  ink.className = "ink-canvas";
+  overlay.append(ink);
+  return overlay;
+}
 
-    state.pages.push({
-      pageNumber,
-      page,
-      pageDiv,
-      viewport,
-      renderedScale: null,
-      textContent: null,
-    });
+function makePageDiv(doc, pageNumber, page) {
+  const viewport = page.getViewport({ scale: state.scale });
+  const pageDiv = document.createElement("section");
+  pageDiv.className = "pdf-page";
+  pageDiv.dataset.docId = doc.id;
+  pageDiv.dataset.pageNumber = String(pageNumber);
+  pageDiv.style.width = `${viewport.width}px`;
+  pageDiv.style.height = `${viewport.height}px`;
+
+  const placeholder = document.createElement("div");
+  placeholder.className = "page-placeholder";
+  placeholder.textContent = `第 ${pageNumber} 页`;
+  pageDiv.append(placeholder, createPageOverlay());
+  return pageDiv;
+}
+
+async function buildDocumentPages(doc) {
+  elements.renderObserver?.disconnect();
+  state.renderObserver = null;
+  state.pages = [];
+  elements.pdfPages.replaceChildren();
+
+  for (let pageNumber = 1; pageNumber <= doc.pdfDoc.numPages; pageNumber += 1) {
+    let entry = doc.pages.find((item) => item.pageNumber === pageNumber);
+    if (!entry) {
+      const page = await doc.pdfDoc.getPage(pageNumber);
+      entry = {
+        pageNumber,
+        page,
+        pageDiv: null,
+        viewport: null,
+        renderedScale: null,
+        textContent: null,
+      };
+      doc.pages.push(entry);
+    }
+    entry.pageDiv = makePageDiv(doc, pageNumber, entry.page);
+    entry.viewport = entry.page.getViewport({ scale: state.scale });
+    entry.renderedScale = null;
+    entry.renderPromise = null;
+    elements.pdfPages.append(entry.pageDiv);
+    state.pages.push(entry);
   }
 
-  const maxWidth = Math.max(...state.pages.map((entry) => entry.viewport.width));
+  const maxWidth = Math.max(...state.pages.map((item) => item.viewport.width));
   elements.pdfPages.style.setProperty("--page-width", `${Math.round(maxWidth)}px`);
   setupRenderObserver();
+}
+
+async function activateDocument(docId) {
+  const doc = state.documents.find((item) => item.id === docId);
+  if (!doc) return;
+  state.activeDocId = docId;
+  state.pdfDoc = doc.pdfDoc;
+  state.selectedText = "";
+  state.selectionRange = null;
+  state.lastAnswer = null;
+  clearSelection();
+  hideSelectionToolbar();
+
+  elements.emptyState.hidden = true;
+  elements.pdfPages.hidden = false;
+  setDocumentTitle(doc.title, true);
+  elements.pageStatus.textContent = `共 ${doc.pdfDoc.numPages} 页`;
+  elements.renderStatus.textContent = "建立可选中文本层…";
+
+  await buildDocumentPages(doc);
+  renderDocTabs();
+  elements.zoomLabel.textContent = `${Math.round(state.scale * 75)}%`;
+  elements.renderStatus.textContent = `PDF.js 本地渲染 · ${APP_BUILD}`;
   requestAnimationFrame(() => {
     elements.pdfScroll.scrollTop = 0;
     updateScrollStatus();
   });
-  elements.zoomLabel.textContent = `${Math.round(state.scale * 75)}%`;
-  elements.renderStatus.textContent = `PDF.js 本地渲染 · ${APP_BUILD}`;
+}
+
+function renderDocTabs() {
+  elements.docTabs.replaceChildren();
+  elements.docTabs.hidden = state.documents.length <= 1;
+  for (const doc of state.documents) {
+    const tab = document.createElement("button");
+    tab.className = "doc-tab";
+    tab.classList.toggle("active", doc.id === state.activeDocId);
+    tab.type = "button";
+    tab.dataset.docId = doc.id;
+    const title = document.createElement("span");
+    title.className = "doc-tab-title";
+    title.textContent = doc.title;
+    const close = document.createElement("span");
+    close.className = "doc-tab-close";
+    close.textContent = "×";
+    close.dataset.closeDocId = doc.id;
+    tab.append(title, close);
+    elements.docTabs.append(tab);
+  }
+}
+
+async function closeDocument(docId) {
+  const index = state.documents.findIndex((doc) => doc.id === docId);
+  if (index < 0) return;
+  const [removed] = state.documents.splice(index, 1);
+  try {
+    await removed?.pdfDoc?.destroy();
+  } catch {
+    // Ignore destroy errors for a closed document.
+  }
+  if (state.documents.length === 0) {
+    state.activeDocId = null;
+    state.pdfDoc = null;
+    state.pages = [];
+    elements.pdfPages.replaceChildren();
+    elements.pdfPages.hidden = true;
+    elements.emptyState.hidden = false;
+    setDocumentTitle("尚未打开 PDF", false);
+    renderDocTabs();
+    return;
+  }
+  if (state.activeDocId === docId) {
+    const next = state.documents[Math.max(0, index - 1)];
+    await activateDocument(next.id);
+  } else {
+    renderDocTabs();
+  }
 }
 
 function setupRenderObserver() {
@@ -490,6 +590,7 @@ async function renderPage(pageEntry) {
     pageEntry.textContent = textContent;
     pageEntry.viewport = viewport;
     pageEntry.renderedScale = state.scale;
+    applyPageAnnotations(pageEntry);
 
     if (!textLayerDiv.textContent.trim()) {
       elements.renderStatus.textContent = "这页可能没有文字层";
@@ -507,6 +608,282 @@ async function renderPage(pageEntry) {
     });
 
   return pageEntry.renderPromise;
+}
+
+function ensureAnnotationsDoc(docId) {
+  if (!state.annotations[docId]) state.annotations[docId] = {};
+  return state.annotations[docId];
+}
+
+function saveAnnotations() {
+  saveJson(ANNOTATIONS_KEY, state.annotations);
+}
+
+function normalizedRectFromSelection(pageDiv) {
+  const rect = state.selectionRange?.getBoundingClientRect?.();
+  if (!rect || !rect.width || !rect.height) {
+    return { x: 0.08, y: 0.08, w: 0.42, h: 0.08 };
+  }
+  const pageRect = pageDiv.getBoundingClientRect();
+  return {
+    x: Math.min(0.98, Math.max(0, (rect.left - pageRect.left) / pageRect.width)),
+    y: Math.min(0.98, Math.max(0, (rect.top - pageRect.top) / pageRect.height)),
+    w: Math.min(1, rect.width / pageRect.width),
+    h: Math.min(1, rect.height / pageRect.height),
+  };
+}
+
+function addAnnotation(type, text, rect) {
+  const docId = state.activeDocId;
+  if (!docId) return;
+  const pageNumber = state.selectedPage || state.currentPage;
+  const doc = ensureAnnotationsDoc(docId);
+  const list = (doc[pageNumber] ||= []);
+  list.push({
+    id: `ann-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    type,
+    text,
+    rect,
+    color: "#3b8666",
+  });
+  saveAnnotations();
+  const entry = state.pages.find((item) => item.pageNumber === pageNumber);
+  if (entry?.renderedScale === state.scale) applyPageAnnotations(entry);
+}
+
+function removeAnnotation(docId, pageNumber, annotationId) {
+  const doc = state.annotations[docId];
+  if (!doc) return;
+  doc[pageNumber] = (doc[pageNumber] || []).filter(
+    (item) => item.id !== annotationId
+  );
+  saveAnnotations();
+  const entry =
+    state.activeDocId === docId
+      ? state.pages.find((item) => item.pageNumber === Number(pageNumber))
+      : null;
+  if (entry?.renderedScale === state.scale) applyPageAnnotations(entry);
+}
+
+function makeNoteElement(annotation, pageDiv) {
+  const item = document.createElement("div");
+  item.className = "annotation-item note";
+  item.style.left = `${annotation.rect.x * 100}%`;
+  item.style.top = `${annotation.rect.y * 100}%`;
+  item.style.width = `${Math.max(annotation.rect.w, 0.28) * 100}%`;
+
+  const textarea = document.createElement("textarea");
+  textarea.value = annotation.text || "";
+  textarea.placeholder = "输入注释…";
+  textarea.addEventListener("input", () => {
+    annotation.text = textarea.value;
+    saveAnnotations();
+  });
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "note-toolbar";
+  const drag = document.createElement("span");
+  drag.className = "note-drag";
+  drag.textContent = "⋮⋮";
+  const close = document.createElement("button");
+  close.className = "note-close";
+  close.textContent = "删除";
+  close.type = "button";
+  toolbar.append(drag, close);
+  item.append(textarea, toolbar);
+
+  drag.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    drag.setPointerCapture?.(event.pointerId);
+    const pageRect = pageDiv.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startLeft = annotation.rect.x;
+    const startTop = annotation.rect.y;
+    const move = (moveEvent) => {
+      annotation.rect.x = Math.min(
+        0.98,
+        Math.max(0, startLeft + (moveEvent.clientX - startX) / pageRect.width)
+      );
+      annotation.rect.y = Math.min(
+        0.98,
+        Math.max(0, startTop + (moveEvent.clientY - startY) / pageRect.height)
+      );
+      item.style.left = `${annotation.rect.x * 100}%`;
+      item.style.top = `${annotation.rect.y * 100}%`;
+    };
+    const finish = () => {
+      drag.removeEventListener("pointermove", move);
+      drag.removeEventListener("pointerup", finish);
+      drag.removeEventListener("pointercancel", finish);
+      saveAnnotations();
+    };
+    drag.addEventListener("pointermove", move);
+    drag.addEventListener("pointerup", finish);
+    drag.addEventListener("pointercancel", finish);
+  });
+
+  close.addEventListener("click", () => {
+    removeAnnotation(
+      pageDiv.dataset.docId,
+      Number(pageDiv.dataset.pageNumber),
+      annotation.id
+    );
+  });
+  return item;
+}
+
+function drawInk(canvas, strokes) {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 2), 3);
+  canvas.width = Math.floor(rect.width * dpr);
+  canvas.height = Math.floor(rect.height * dpr);
+  const context = canvas.getContext("2d");
+  context.setTransform(
+    (canvas.width / rect.width),
+    0,
+    0,
+    (canvas.height / rect.height),
+    0,
+    0
+  );
+  context.clearRect(0, 0, rect.width, rect.height);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  for (const stroke of strokes || []) {
+    if (!stroke.points?.length) continue;
+    context.strokeStyle = stroke.color || "#d6336c";
+    context.lineWidth = stroke.width || 2.5;
+    context.beginPath();
+    stroke.points.forEach((point, index) => {
+      const x = point.x * rect.width;
+      const y = point.y * rect.height;
+      if (index === 0) context.moveTo(x, y);
+      else context.lineTo(x, y);
+    });
+    context.stroke();
+  }
+}
+
+function applyPageAnnotations(entry) {
+  const pageDiv = entry.pageDiv;
+  const overlay = $(".overlay-layer", pageDiv);
+  if (!overlay) return;
+  const ink = $(".ink-canvas", overlay);
+  const docId = pageDiv.dataset.docId;
+  const pageNumber = Number(pageDiv.dataset.pageNumber);
+  const doc = state.annotations[docId] || {};
+  const items = doc[pageNumber] || [];
+  const annotationsLayer = $(".annotation-items", overlay);
+  if (annotationsLayer) annotationsLayer.remove();
+  const layer = document.createElement("div");
+  layer.className = "annotation-items";
+  layer.style.cssText = "position:absolute;inset:0;pointer-events:none;";
+  for (const annotation of items) {
+    if (annotation.type === "ink") continue;
+    if (annotation.type === "note") {
+      layer.append(makeNoteElement(annotation, pageDiv));
+      continue;
+    }
+    const item = document.createElement("div");
+    item.className = `annotation-item ${annotation.type}`;
+    item.style.left = `${annotation.rect.x * 100}%`;
+    item.style.top = `${annotation.rect.y * 100}%`;
+    item.style.width = `${Math.max(annotation.rect.w, 0.02) * 100}%`;
+    item.style.height = `${Math.max(annotation.rect.h, 0.02) * 100}%`;
+    layer.append(item);
+  }
+  overlay.append(layer);
+  if (ink) drawInk(ink, doc[`ink-${pageNumber}`] || []);
+}
+
+function pageEntryFromEvent(event) {
+  const pageDiv = event.target.closest?.(".pdf-page");
+  if (!pageDiv) return null;
+  const pageNumber = Number(pageDiv.dataset.pageNumber);
+  return state.pages.find((item) => item.pageNumber === pageNumber);
+}
+
+function beginInkStroke(event, pageDiv) {
+  if (event.pointerType !== "pen" || !state.penMode) return;
+  event.preventDefault();
+  const pageRect = pageDiv.getBoundingClientRect();
+  const stroke = {
+    color: "#d6336c",
+    width: 2.5,
+    points: [
+      {
+        x: (event.clientX - pageRect.left) / pageRect.width,
+        y: (event.clientY - pageRect.top) / pageRect.height,
+      },
+    ],
+  };
+  state.currentStroke = { stroke, pageDiv, pageRect };
+  const canvas = $(".ink-canvas", pageDiv);
+  canvas.setPointerCapture?.(event.pointerId);
+}
+
+function moveInkStroke(event) {
+  const current = state.currentStroke;
+  if (!current || event.pointerType !== "pen") return;
+  current.stroke.points.push({
+    x: (event.clientX - current.pageRect.left) / current.pageRect.width,
+    y: (event.clientY - current.pageRect.top) / current.pageRect.height,
+  });
+  const canvas = $(".ink-canvas", current.pageDiv);
+  if (!canvas) return;
+  const context = canvas.getContext("2d");
+  const rect = canvas.getBoundingClientRect();
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.strokeStyle = current.stroke.color;
+  context.lineWidth = current.stroke.width;
+  const points = current.stroke.points;
+  const last = points[points.length - 2];
+  const point = points[points.length - 1];
+  if (!last) return;
+  context.beginPath();
+  context.moveTo(last.x * rect.width, last.y * rect.height);
+  context.lineTo(point.x * rect.width, point.y * rect.height);
+  context.stroke();
+}
+
+function finishInkStroke(event) {
+  const current = state.currentStroke;
+  if (!current) return;
+  if (event.pointerType === "pen" && current.stroke.points.length > 1) {
+    const docId = current.pageDiv.dataset.docId;
+    const pageNumber = Number(current.pageDiv.dataset.pageNumber);
+    const doc = ensureAnnotationsDoc(docId);
+    const key = `ink-${pageNumber}`;
+    (doc[key] ||= []).push(current.stroke);
+    saveAnnotations();
+  }
+  state.currentStroke = null;
+}
+
+function retainAnswerBesidePdf() {
+  if (!state.lastAnswer) {
+    showToast("先让助手解释一段文字");
+    return;
+  }
+  const entry = state.pages.find(
+    (item) => item.pageNumber === state.lastAnswer.pageNumber
+  );
+  const rect = entry ? normalizedRectFromSelection(entry.pageDiv) : null;
+  const text = [
+    state.lastAnswer.result.translation,
+    state.lastAnswer.result.summary,
+    state.lastAnswer.result.dataInsight,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  addAnnotation(
+    "note",
+    text,
+    rect || { x: 0.06, y: 0.12, w: 0.42, h: 0.2 }
+  );
+  showToast("已保留到原文旁");
 }
 
 function handleLoadError(error) {
@@ -558,7 +935,7 @@ async function setScale(nextScale) {
     const placeholder = document.createElement("div");
     placeholder.className = "page-placeholder";
     placeholder.textContent = `第 ${entry.pageNumber} 页`;
-    entry.pageDiv.append(placeholder);
+    entry.pageDiv.append(placeholder, createPageOverlay());
     state.renderObserver?.unobserve(entry.pageDiv);
     state.renderObserver?.observe(entry.pageDiv);
   }
@@ -610,12 +987,37 @@ function rangeAtPoint(x, y) {
 
 function selectWordAtPoint(x, y) {
   const caret = rangeAtPoint(x, y);
-  if (!caret || caret.startContainer.nodeType !== Node.TEXT_NODE) return false;
+  const hitElement = document.elementFromPoint(x, y);
+  const hitSpan =
+    hitElement?.closest?.(".textLayer") && hitElement.closest("span")
+      ? hitElement.closest("span")
+      : null;
 
-  const node = caret.startContainer;
+  let node = caret?.startContainer;
+  let offset = caret?.startOffset || 0;
+  const caretInsideSpan =
+    node?.nodeType === Node.TEXT_NODE &&
+    hitSpan &&
+    (node === hitSpan || hitSpan.contains(node));
+
+  if (hitSpan && !caretInsideSpan) {
+    const walker = document.createTreeWalker(hitSpan, NodeFilter.SHOW_TEXT);
+    node = walker.nextNode();
+    if (node) {
+      const rect = hitSpan.getBoundingClientRect();
+      const ratio =
+        rect.width > 0
+          ? Math.min(1, Math.max(0, (x - rect.left) / rect.width))
+          : 0.5;
+      offset = Math.floor(ratio * (node.nodeValue?.length || 0));
+    }
+  }
+
+  if (!node || node.nodeType !== Node.TEXT_NODE) return false;
+
   const text = node.nodeValue || "";
   const isWordCharacter = (character) => /[A-Za-z0-9_'’-]/.test(character);
-  let start = Math.min(caret.startOffset, text.length);
+  let start = Math.min(offset, text.length);
   let end = start;
 
   while (start > 0 && isWordCharacter(text[start - 1])) start -= 1;
@@ -632,7 +1034,8 @@ function selectWordAtPoint(x, y) {
 
   state.selectedText = truncate(selection.toString(), 3400);
   state.selectedPage = Number(
-    node.parentElement?.closest(".pdf-page")?.dataset.pageNumber ||
+    hitSpan?.closest(".pdf-page")?.dataset.pageNumber ||
+      node.parentElement?.closest(".pdf-page")?.dataset.pageNumber ||
       state.currentPage
   );
   state.selectionRange = range.cloneRange();
@@ -653,7 +1056,7 @@ function beginLongPress(event) {
       if (!longPressState) return;
       selectWordAtPoint(point.x, point.y);
       longPressState = null;
-    }, 520),
+    }, 430),
   };
 }
 
@@ -1477,6 +1880,43 @@ function bindPanelResize() {
   });
 }
 
+function addSelectionMark(type) {
+  if (!state.selectedText || !state.selectionRange) {
+    showToast("先选中一段原文");
+    return;
+  }
+  const entry = state.pages.find(
+    (item) => item.pageNumber === state.selectedPage
+  );
+  if (!entry) return;
+  const rect = normalizedRectFromSelection(entry.pageDiv);
+  addAnnotation(type, state.selectedText, rect);
+  clearSelection();
+}
+
+function toggleTool(button, active) {
+  button.classList.toggle("active", active);
+}
+
+function setTextMode(active) {
+  state.textMode = active;
+  state.penMode = false;
+  document.body.classList.toggle("text-mode", active);
+  document.body.classList.remove("pen-mode");
+  toggleTool(elements.textButton, active);
+  toggleTool(elements.penButton, false);
+}
+
+function setPenMode(active) {
+  state.penMode = active;
+  state.textMode = false;
+  document.body.classList.toggle("pen-mode", active);
+  document.body.classList.remove("text-mode");
+  toggleTool(elements.penButton, active);
+  toggleTool(elements.textButton, false);
+  if (!active) state.currentStroke = null;
+}
+
 function bindEvents() {
   const openFilePicker = () => elements.fileInput.click();
   elements.openFileButton.addEventListener("click", openFilePicker);
@@ -1491,6 +1931,10 @@ function bindEvents() {
   elements.emptySampleButton.addEventListener("click", () => void openSample());
   elements.settingsButton.addEventListener("click", openSettings);
   elements.panelToggleButton.addEventListener("click", togglePanel);
+  elements.highlightButton.addEventListener("click", () => addSelectionMark("highlight"));
+  elements.underlineButton.addEventListener("click", () => addSelectionMark("underline"));
+  elements.textButton.addEventListener("click", () => setTextMode(!state.textMode));
+  elements.penButton.addEventListener("click", () => setPenMode(!state.penMode));
   elements.zoomOutButton.addEventListener("click", () => void setScale(state.scale - 0.12));
   elements.zoomInButton.addEventListener("click", () => void setScale(state.scale + 0.12));
   elements.fitButton.addEventListener("click", fitWidth);
@@ -1498,6 +1942,7 @@ function bindEvents() {
   elements.clearSelectionButton.addEventListener("click", clearSelection);
   elements.copyAnswerButton.addEventListener("click", () => void copyAnswer());
   elements.saveAnswerButton.addEventListener("click", saveAnswerTerms);
+  elements.retainAnswerButton.addEventListener("click", retainAnswerBesidePdf);
   elements.sendFollowupButton.addEventListener("click", () => void sendFollowup());
   elements.followupInput.addEventListener("keydown", (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
@@ -1516,6 +1961,42 @@ function bindEvents() {
     );
     saveJson(GLOSSARY_KEY, state.glossary);
     renderGlossary();
+  });
+
+  elements.docTabs.addEventListener("click", (event) => {
+    const tab = event.target.closest?.(".doc-tab");
+    if (!tab) return;
+    if (event.target.closest?.(".doc-tab-close")) {
+      void closeDocument(tab.dataset.docId);
+    } else {
+      void activateDocument(tab.dataset.docId);
+    }
+  });
+
+  elements.pdfPages.addEventListener("pointerdown", (event) => {
+    const pageDiv = event.target.closest?.(".pdf-page");
+    if (!pageDiv) return;
+    if (event.target.closest?.(".ink-canvas")) {
+      beginInkStroke(event, pageDiv);
+      return;
+    }
+    if (state.textMode) {
+      event.preventDefault();
+      const rect = pageDiv.getBoundingClientRect();
+      const x = Math.min(0.95, Math.max(0, (event.clientX - rect.left) / rect.width));
+      const y = Math.min(0.9, Math.max(0, (event.clientY - rect.top) / rect.height));
+      addAnnotation("note", "", { x, y, w: 0.34, h: 0.16 });
+      setTextMode(false);
+      requestAnimationFrame(() => {
+        $(".annotation-item.note textarea", pageDiv)?.focus();
+      });
+    }
+  });
+
+  document.addEventListener("pointermove", (event) => moveInkStroke(event));
+  document.addEventListener("pointerup", (event) => finishInkStroke(event));
+  document.addEventListener("pointercancel", () => {
+    state.currentStroke = null;
   });
 
   for (const button of $$("[data-quick-action]")) {
