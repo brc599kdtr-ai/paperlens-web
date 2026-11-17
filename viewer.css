@@ -765,8 +765,9 @@ body.pen-mode .textLayer {
 }
 
 .textLayer {
+  --scale-factor: 1;
   --min-font-size: 1;
-  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --text-scale-factor: calc(var(--scale-factor) * var(--min-font-size));
   --min-font-size-inv: calc(1 / var(--min-font-size));
   position: absolute;
   inset: 0;

@@ -14,7 +14,7 @@ const GLOSSARY_KEY = "paperlens-glossary-v1";
 const PANEL_WIDTH_KEY = "paperlens-panel-width-v1";
 const ANNOTATIONS_KEY = "paperlens-annotations-v1";
 const DEFAULT_SCALE = 1.6;
-const APP_BUILD = "v13";
+const APP_BUILD = "v14";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -567,6 +567,10 @@ async function renderPage(pageEntry) {
 
     const textLayerDiv = document.createElement("div");
     textLayerDiv.className = "textLayer";
+    textLayerDiv.style.setProperty(
+      "--scale-factor",
+      String(viewport.scale)
+    );
     textLayerDiv.style.setProperty(
       "--total-scale-factor",
       String(viewport.scale)
@@ -2136,7 +2140,7 @@ function initialize() {
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker
-      .register(new URL("./sw.js?v=13", import.meta.url), { scope: "./" })
+      .register(new URL("./sw.js?v=14", import.meta.url), { scope: "./" })
       .catch((error) => {
         console.warn("PaperLens offline cache could not be registered", error);
       });
